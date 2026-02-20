@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAVE</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+/* ── CUSTOM CURSOR ── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+body, a, button, input, [onclick], [role=button] { cursor:none !important; }
+
+#cursor-dot {
+  position:fixed;z-index:99999;pointer-events:none;
+  width:8px;height:8px;border-radius:50%;
+  background:var(--a);
+  box-shadow:0 0 12px var(--a),0 0 24px rgba(63,255,196,.5);
+  transform:translate(-50%,-50%);
+  transition:transform .06s, opacity .2s, width .2s, height .2s, background .2s;
+  will-change:transform;
+}
+#cursor-ring {
+  position:fixed;z-index:99998;pointer-events:none;
+  width:28px;height:28px;border-radius:50%;
+  border:1px solid rgba(63,255,196,.45);
+  transform:translate(-50%,-50%);
+  transition:transform .18s cubic-bezier(0.22,1,0.36,1), width .22s, height .22s, border-color .22s, opacity .2s;
+  will-change:transform;
+}
+body.cursor-click #cursor-dot { transform:translate(-50%,-50%) scale(2.5); background:#fff; }
+body.cursor-click #cursor-ring { transform:translate(-50%,-50%) scale(1.6); border-color:rgba(255,255,255,.3); }
+body.cursor-hover #cursor-dot { width:12px;height:12px;background:#fff;box-shadow:0 0 16px var(--a),0 0 32px rgba(63,255,196,.6); }
+body.cursor-hover #cursor-ring { width:40px;height:40px;border-color:rgba(63,255,196,.7); }
+
+/* ── AUDIO-ONLY TILE ── */
+.vt.audio-only { background:rgba(10,14,20,0.9); }
+.vt.audio-only .vt-waiting-label { content:'нет видео'; }
+.vt-waiting {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  height:100%;color:var(--muted);
+}
+.vt-waiting-avatar {
+  width:52px;height:52px;border-radius:50%;
+  background:rgba(63,255,196,.06);border:1px solid rgba(63,255,196,.12);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  animation:avatarPulse 2.5s ease-in-out infinite;
+}
+@keyframes avatarPulse { 0%,100%{box-shadow:0 0 0 0 rgba(63,255,196,.1)} 50%{box-shadow:0 0 0 12px rgba(63,255,196,.0)} }
+.vt-waiting-label { font-size:9px;letter-spacing:.1em;color:var(--muted); }
+:root {
+  --bg:#06080b; --s1:#0a0e14; --s2:#0f1520;
+  --a:#3fffc4; --a2:#7b5ea7;
+  --text:#e2eaf4; --muted:#364559;
+  --border:rgba(63,255,196,0.09); --glass:rgba(10,14,20,0.72);
+  --speak:#00e676;
+}
+body { font-family:'JetBrains Mono',monospace; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
+
+/* ── CANVAS BACKGROUND ── */
+#bg-canvas { position:fixed;inset:0;z-index:0;pointer-events:none; }
+
+/* ── NOISE GRAIN overlay ── */
+body::after {
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size:180px 180px;
+  opacity:0.028;
+}
+
+/* ── LOBBY ── */
+#lobby { display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;position:relative;z-index:10;animation:fadeUp .8s cubic-bezier(0.22,1,0.36,1); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── ORBIT RINGS ── */
+.orbit-wrap { position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden; }
+.orbit {
+  position:absolute;border-radius:50%;border:1px solid transparent;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+}
+.orbit-1 {
+  width:520px;height:520px;
+  border-color:rgba(63,255,196,0.07);
+  animation:orbitSpin 28s linear infinite;
+}
+.orbit-2 {
+  width:720px;height:720px;
+  border-color:rgba(123,94,167,0.05);
+  animation:orbitSpin 42s linear infinite reverse;
+}
+.orbit-3 {
+  width:940px;height:940px;
+  border-color:rgba(50,180,255,0.035);
+  animation:orbitSpin 60s linear infinite;
+}
+.orbit-dot {
+  position:absolute;width:5px;height:5px;border-radius:50%;top:-2.5px;left:50%;transform:translateX(-50%);
+}
+.orbit-1 .orbit-dot { background:var(--a);box-shadow:0 0 12px var(--a),0 0 24px var(--a); }
+.orbit-2 .orbit-dot { background:#7b5ea7;box-shadow:0 0 12px #7b5ea7,0 0 24px #7b5ea7; }
+.orbit-3 .orbit-dot { background:#32b4ff;box-shadow:0 0 10px #32b4ff,0 0 20px #32b4ff; }
+@keyframes orbitSpin { to { transform:translate(-50%,-50%) rotate(360deg); } }
+
+/* ── STATUS BADGES ── */
+.lobby-badges {
+  display:flex;align-items:center;gap:8px;margin-bottom:32px;flex-wrap:wrap;justify-content:center;
+  animation:fadeUp .8s .3s both cubic-bezier(0.22,1,0.36,1);
+}
+.badge {
+  display:flex;align-items:center;gap:5px;
+  border-radius:20px;padding:4px 11px 4px 8px;font-size:8px;letter-spacing:.1em;
+  border:1px solid;backdrop-filter:blur(8px);
+}
+.badge-p2p { background:rgba(63,255,196,.05);border-color:rgba(63,255,196,.2);color:var(--a); }
+.badge-enc { background:rgba(123,94,167,.06);border-color:rgba(123,94,167,.22);color:#a07fd4; }
+.badge-free { background:rgba(50,180,255,.05);border-color:rgba(50,180,255,.18);color:#32b4ff; }
+.badge-dot { width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor; }
+
+.eyebrow {
+  font-size:9px;letter-spacing:.48em;color:var(--a);
+  margin-bottom:22px;display:flex;align-items:center;gap:14px;
+  text-transform:uppercase;position:relative;z-index:1;
+  animation:fadeUp .8s .1s both cubic-bezier(0.22,1,0.36,1);
+}
+.eyebrow::before,.eyebrow::after { content:'';width:28px;height:1px;background:linear-gradient(90deg,transparent,var(--a)); }
+.eyebrow::after { transform:scaleX(-1); }
+
+.wordmark {
+  font-family:'Unbounded',sans-serif;
+  font-size:clamp(64px,11vw,118px);font-weight:900;letter-spacing:-.04em;line-height:.88;
+  color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.07);
+  position:relative;margin-bottom:14px;z-index:1;
+  animation:fadeUp .8s .15s both cubic-bezier(0.22,1,0.36,1);
+}
+.wordmark::after {
+  content:'WAVE';position:absolute;inset:0;
+  background:linear-gradient(140deg,#fff 15%,rgba(200,255,242,.95) 50%,#3fffc4 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;-webkit-text-stroke:0;
+}
+
+.tagline {
+  font-size:11px;color:var(--muted);letter-spacing:.13em;margin-bottom:48px;
+  position:relative;z-index:1;
+  min-height:16px;
+  animation:fadeUp .8s .2s both cubic-bezier(0.22,1,0.36,1);
+  transition:opacity .4s;
+}
+
+/* ── CARD — glass tile ── */
+.card {
+  width:min(370px,90vw);
+  position:relative;z-index:1;
+  animation:fadeUp .8s .25s both cubic-bezier(0.22,1,0.36,1);
+
+  /* layered glass */
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.04) 0%,rgba(255,255,255,0) 60%),
+    rgba(8,12,18,0.68);
+  border:1px solid rgba(255,255,255,.09);
+  border-top:1px solid rgba(255,255,255,.16);
+  border-radius:22px;
+  padding:26px 24px;
+  display:flex;flex-direction:column;gap:11px;
+  backdrop-filter:blur(32px) saturate(160%);
+  -webkit-backdrop-filter:blur(32px) saturate(160%);
+  box-shadow:
+    0 0 0 1px rgba(63,255,196,.05) inset,
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 32px 64px rgba(0,0,0,.65),
+    0 0 80px rgba(63,255,196,.04);
+}
+/* subtle corner accent */
+.card::before {
+  content:'';position:absolute;top:-1px;left:20px;right:20px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(63,255,196,.3),transparent);
+  border-radius:50%;z-index:1;
+}
+
+input.fi {
+  width:100%;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:11px;padding:13px 15px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;
+  font-size:13px;outline:none;transition:border-color .18s,box-shadow .18s,background .18s;
+}
+input.fi:focus { border-color:var(--a);box-shadow:0 0 0 3px rgba(63,255,196,.08),0 0 24px rgba(63,255,196,.06);background:rgba(63,255,196,.03); }
+input.fi::placeholder { color:var(--muted); }
+input.fi.error {
+  border-color:rgba(255,61,90,.7) !important;
+  box-shadow:0 0 0 3px rgba(255,61,90,.12), 0 0 24px rgba(255,61,90,.1) !important;
+  animation:shakeInput .45s cubic-bezier(0.36,0.07,0.19,0.97);
+}
+@keyframes shakeInput {
+  0%,100%{transform:translateX(0)}
+  15%{transform:translateX(-7px)}
+  30%{transform:translateX(7px)}
+  45%{transform:translateX(-5px)}
+  60%{transform:translateX(5px)}
+  75%{transform:translateX(-3px)}
+  90%{transform:translateX(3px)}
+}
+
+.btn-p {
+  width:100%;padding:14px;border:none;border-radius:11px;
+  font-family:'Unbounded',sans-serif;font-size:10px;font-weight:700;letter-spacing:.07em;
+  cursor:pointer;background:var(--a);color:#000;
+  box-shadow:0 0 28px rgba(63,255,196,.28),0 0 60px rgba(63,255,196,.1),0 2px 0 rgba(255,255,255,.2) inset;
+  transition:all .22s cubic-bezier(0.34,1.56,0.64,1);
+  position:relative;overflow:hidden;
+}
+.btn-p::before {
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.18) 0%,transparent 60%);
+  pointer-events:none;
+}
+.btn-p:hover { transform:translateY(-3px);box-shadow:0 0 48px rgba(63,255,196,.55),0 0 80px rgba(63,255,196,.18),0 2px 0 rgba(255,255,255,.2) inset; }
+.btn-p:active { transform:translateY(0); }
+
+.sep { display:flex;align-items:center;gap:8px;font-size:8px;letter-spacing:.32em;color:var(--muted); }
+.sep::before,.sep::after { content:'';flex:1;height:1px;background:rgba(255,255,255,.04); }
+.jr { display:flex;gap:7px; }
+.jr input { flex:1; }
+.btn-s {
+  white-space:nowrap;padding:12px 15px;
+  background:rgba(255,255,255,.04);color:var(--text);
+  border:1px solid rgba(255,255,255,.08);border-radius:11px;
+  font-family:'Unbounded',sans-serif;font-size:9px;font-weight:700;letter-spacing:.05em;
+  cursor:pointer;transition:all .18s;
+}
+.btn-s:hover { border-color:var(--a);color:var(--a);background:rgba(63,255,196,.04); }
+
+/* ROOM */
+#room { display:none;height:100vh;flex-direction:column;background:#000; }
+#room.on { display:flex; }
+
+.tb { flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:rgba(6,8,11,.96);border-bottom:1px solid rgba(255,255,255,.05);z-index:50; }
+.tb-logo { font-family:'Unbounded',sans-serif;font-size:14px;font-weight:900;color:var(--a); }
+.tb-mid { display:flex;align-items:center;gap:8px; }
+.pill { display:flex;align-items:center;gap:5px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.18);border-radius:16px;padding:3px 9px 3px 7px;font-size:9px;color:#00e676;letter-spacing:.07em; }
+.pdot { width:5px;height:5px;background:#00e676;border-radius:50%;box-shadow:0 0 6px #00e676;animation:blink 1.5s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.2} }
+.pcnt-pill { font-size:9px;color:var(--muted);letter-spacing:.04em;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:3px 9px; }
+.tb-btn { background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:6px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:9px;cursor:pointer;transition:all .18s;letter-spacing:.04em; }
+.tb-btn:hover { border-color:var(--a);color:var(--a); }
+
+.room-body { flex:1;display:flex;min-height:0;overflow:hidden; }
+
+/* GRID */
+#vids { flex:1;display:grid;gap:3px;padding:3px;background:#000;min-width:0;min-height:0;align-items:stretch; }
+
+/* ПЛАШКА */
+.vt { position:relative;background:#000;border-radius:8px;overflow:hidden;border:2px solid transparent;cursor:pointer;transition:border-color .15s; }
+.vt.speaking { border-color:var(--speak);box-shadow:0 0 0 1px var(--speak) inset; }
+.vt video { width:100%;height:100%;object-fit:contain;display:block;background:#000; }
+.vt-name { position:absolute;bottom:0;left:0;right:0;padding:22px 10px 8px;background:linear-gradient(to top,rgba(0,0,0,.8) 0%,transparent 100%);font-size:11px;font-weight:500;letter-spacing:.04em;color:#fff; }
+/* ── SPLIT TILE (cam top + screen bottom) ── */
+.vt.vt-split { display:flex;flex-direction:column; }
+.vt-cam-zone,.vt-scr-zone { position:relative;overflow:hidden; }
+.vt-cam-zone { height:28%;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer; }
+.vt-scr-zone { flex:1;cursor:pointer; }
+.vt-cam-zone video { width:100%;height:100%;object-fit:cover;display:block;background:#000; }
+.vt-scr-zone video { width:100%;height:100%;object-fit:contain;display:block;background:#000; }
+.vt-zone-label { position:absolute;top:5px;left:8px;font-size:7px;letter-spacing:.12em;color:rgba(255,255,255,.45);background:rgba(0,0,0,.5);padding:2px 7px;border-radius:4px;pointer-events:none;z-index:2;text-transform:uppercase; }
+.vt-cam-zone:hover,.vt-scr-zone:hover { background:rgba(63,255,196,.03); }
+/* ── FULLSCREEN OVERLAY ── */
+#pin-overlay { position:fixed;inset:0;z-index:300;background:#000;display:none;align-items:center;justify-content:center; }
+#pin-overlay.show { display:flex; }
+#pin-overlay video { width:100%;height:100%;object-fit:contain;background:#000; }
+#pin-close { position:absolute;top:14px;right:16px;font-size:9px;color:rgba(255,255,255,.45);cursor:pointer;letter-spacing:.06em;background:rgba(0,0,0,.55);padding:6px 13px;border-radius:7px;border:1px solid rgba(255,255,255,.1);transition:all .15s; }
+#pin-close:hover { color:#fff;border-color:rgba(255,255,255,.3); }
+
+/* CONTROLS */
+.cw { flex-shrink:0;height:72px;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(6,8,11,.96);border-top:1px solid rgba(255,255,255,.05); }
+.cb { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:14px;cursor:pointer;border:1px solid rgba(255,255,255,.08);background:rgba(15,21,32,.8);backdrop-filter:blur(18px);user-select:none;transition:all .2s cubic-bezier(0.34,1.56,0.64,1); }
+.cb:hover { border-color:rgba(255,255,255,.22);transform:translateY(-4px) scale(1.05); }
+.cb:active { transform:translateY(-1px) scale(.97); }
+.cb-cam{width:52px;height:58px;} .cb-mic{width:66px;height:72px;} .cb-scr{width:56px;height:62px;} .cb-end{width:52px;height:52px;border-radius:50%;}
+.cb .ic { font-size:20px;line-height:1;transition:transform .18s; }
+.cb-mic .ic { font-size:26px; }
+.cb .lb { font-size:7px;letter-spacing:.15em;color:rgba(255,255,255,.28);text-transform:uppercase; }
+.cb:hover .ic { transform:scale(1.1); }
+.cb:hover .lb { color:rgba(255,255,255,.7); }
+.cb.off { background:rgba(255,61,90,.08);border-color:rgba(255,61,90,.22); }
+.cb.off .lb { color:rgba(255,100,110,.4); }
+.cb.son { background:rgba(63,255,196,.07);border-color:rgba(63,255,196,.28); }
+.cb.son .lb { color:var(--a); }
+.cb-end { background:rgba(255,61,90,.12)!important;border-color:rgba(255,61,90,.35)!important; }
+.cb-end:hover { background:rgba(255,61,90,.25)!important;border-color:rgba(255,61,90,.6)!important; }
+
+/* CHAT */
+.cfab { position:fixed;bottom:22px;right:18px;z-index:60;width:46px;height:46px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(10,14,20,.72);backdrop-filter:blur(20px);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:17px;transition:all .2s cubic-bezier(0.34,1.56,0.64,1); }
+.cfab:hover { transform:translateY(-3px) scale(1.06);border-color:rgba(255,255,255,.22); }
+.cfab.open { background:rgba(63,255,196,.08);border-color:rgba(63,255,196,.3); }
+.ubadge { position:absolute;top:-4px;right:-4px;width:15px;height:15px;background:var(--a);border-radius:50%;font-size:7px;color:#000;font-weight:700;display:none;align-items:center;justify-content:center;border:2px solid #06080b; }
+#cp { position:fixed;top:48px;right:0;bottom:72px;width:290px;z-index:55;display:flex;flex-direction:column;background:rgba(8,11,16,.95);backdrop-filter:blur(28px);border-left:1px solid rgba(255,255,255,.05);transform:translateX(100%);transition:transform .3s cubic-bezier(0.22,1,0.36,1); }
+#cp.open { transform:translateX(0); }
+.ch { padding:15px 14px 11px;border-bottom:1px solid rgba(255,255,255,.04); }
+.ch-t { font-family:'Unbounded',sans-serif;font-size:10px;font-weight:700;color:var(--text); }
+#msgs { flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:7px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.04) transparent; }
+.msg { display:flex;flex-direction:column;gap:2px;animation:msgin .2s ease; }
+@keyframes msgin { from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)} }
+.msg.own { align-items:flex-end; }
+.mm { font-size:8px;color:var(--muted);padding:0 5px;letter-spacing:.05em; }
+.mb { background:var(--s2);border:1px solid rgba(255,255,255,.04);border-radius:11px 11px 11px 3px;padding:8px 12px;font-size:11px;line-height:1.5;max-width:90%;word-break:break-word;color:var(--text); }
+.msg.own .mb { background:rgba(63,255,196,.06);border-color:rgba(63,255,196,.14);border-radius:11px 11px 3px 11px;color:var(--a); }
+.sm { text-align:center;font-size:8px;color:var(--muted);letter-spacing:.08em;padding:2px 0; }
+.ci { display:flex;gap:6px;padding:10px;border-top:1px solid rgba(255,255,255,.04); }
+#ci { flex:1;background:var(--s2);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;resize:none;transition:border-color .18s;line-height:1.4; }
+#ci:focus { border-color:var(--a); }
+#ci::placeholder { color:var(--muted); }
+.sb { width:34px;height:34px;align-self:flex-end;border-radius:8px;background:var(--a);border:none;color:#000;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s; }
+.sb:hover { transform:scale(1.08); }
+
+.toast { position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-60px);background:rgba(8,11,16,.96);border:1px solid var(--border);border-radius:10px;padding:9px 16px;font-size:9px;letter-spacing:.07em;color:var(--a);z-index:9999;pointer-events:none;backdrop-filter:blur(16px);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1); }
+.toast.show { transform:translateX(-50%) translateY(0); }
+.toast.error { background:rgba(20,6,10,.97);border-color:rgba(255,61,90,.3);color:#ff6b6b; }
+#ov { position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(6,8,11,.95);backdrop-filter:blur(18px); }
+#ov.show { display:flex; }
+.sp { width:32px;height:32px;border-radius:50%;border:2px solid rgba(63,255,196,.15);border-top-color:var(--a);animation:spin 1s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.ov-t { font-size:10px;color:var(--muted);letter-spacing:.1em; }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div id="cursor-dot"></div>
+<div id="cursor-ring"></div>
+<div class="orbit-wrap">
+  <div class="orbit orbit-1"><div class="orbit-dot"></div></div>
+  <div class="orbit orbit-2"><div class="orbit-dot"></div></div>
+  <div class="orbit orbit-3"><div class="orbit-dot"></div></div>
+</div>
+<div id="ov"><div class="sp"></div><div class="ov-t" id="ov-t">Подключение...</div></div>
+
+<div id="lobby">
+  <div class="eyebrow">WAVE // VIDEOCALL</div>
+  <h1 class="wordmark">WAVE</h1>
+  <p class="tagline" id="tagline"></p>
+  <div class="lobby-badges">
+    <span class="badge badge-p2p"><span class="badge-dot"></span>P2P</span>
+    <span class="badge badge-enc"><span class="badge-dot"></span>DTLS-SRTP</span>
+    <span class="badge badge-free"><span class="badge-dot"></span>без сервера</span>
+  </div>
+  <div class="card">
+    <input class="fi" id="uname" placeholder="Как тебя зовут?" maxlength="24" autocomplete="off">
+    <button class="btn-p" onclick="createRoom()">⚡ Создать звонок</button>
+    <div class="sep">или войти по коду</div>
+    <div class="jr">
+      <input class="fi" id="rinp" placeholder="Вставь код комнаты..." autocomplete="off" spellcheck="false">
+      <button class="btn-s" onclick="joinRoom()">Войти →</button>
+    </div>
+  </div>
+</div>
+
+<div id="room">
+  <div class="tb">
+    <div class="tb-logo">WAVE</div>
+    <div class="tb-mid">
+      <div class="pill"><div class="pdot"></div>LIVE</div>
+      <div class="pcnt-pill" id="pcnt">только ты</div>
+    </div>
+    <button class="tb-btn" onclick="copyCode()">⧉ Скопировать код</button>
+  </div>
+  <div class="room-body"><div id="vids"></div></div>
+  <div class="cw">
+    <div class="cb cb-cam off" id="bcam" onclick="toggleCam()"><div class="ic" id="icam">🚫</div><div class="lb">камера</div></div>
+    <div class="cb cb-mic off" id="bmic" onclick="toggleMic()"><div class="ic" id="imic">🔇</div><div class="lb">микро</div></div>
+    <div class="cb cb-scr" id="bscr" onclick="toggleScreen()"><div class="ic">🖥️</div><div class="lb">экран</div></div>
+    <div class="cb cb-end" onclick="leaveRoom()"><div class="ic">📵</div></div>
+  </div>
+</div>
+
+<div class="cfab" id="cfab" onclick="toggleChat()">💬<span class="ubadge" id="ubadge"></span></div>
+<div id="cp">
+  <div class="ch"><span class="ch-t">ЧАТ</span></div>
+  <div id="msgs"></div>
+  <div class="ci">
+    <textarea id="ci" placeholder="Сообщение..." rows="1" onkeydown="chatKey(event)"></textarea>
+    <button class="sb" onclick="sendChat()">↑</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="pin-overlay">
+  <video id="pin-video" autoplay playsinline muted></video>
+  <div id="pin-close" onclick="closePinOverlay()">✕ закрыть</div>
+</div>
+
+
+<script type="module">
+import { joinRoom as tryJoin } from 'https://esm.run/trystero@0.20.1/torrent';
+
+const APP_CONFIG = { appId: 'wave-p2p-v4' };
+const MAX_PEERS  = 14;
+
+// ═══ STATE ═══
+let room               = null;
+let myName             = '';
+let myRoomId           = '';
+let camOn              = false;
+let micOn              = false;
+let chatOpen           = false;
+let unread             = 0;
+let myAudioCtx         = null;
+let myAudioTrack       = null;
+let myVideoTrack       = null;
+let screenStream       = null;
+let myStream           = new MediaStream();
+
+// peers[id] = { name, camStream, scrStream, _ctx }
+const peers = {};
+// Queue for typed-stream matching: streamTypeQueue[peerId] = [{type, stream}]
+const streamTypeQueue = {};
+
+let sendName, sendChat_, sendVideoOff, sendStreamMeta;
+
+// ═══ UTILS ═══
+function toast(msg, dur=2600) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('error');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), dur);
+}
+function toastErr(msg, dur=3500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show','error');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.classList.remove('error'),300); }, dur);
+}
+function flashInput(id) {
+  const el = document.getElementById(id); if(!el) return;
+  el.classList.remove('error'); void el.offsetWidth; el.classList.add('error');
+  setTimeout(()=>el.classList.remove('error'), 2000);
+}
+function showOv(t) { document.getElementById('ov-t').textContent=t; document.getElementById('ov').classList.add('show'); }
+function hideOv()  { document.getElementById('ov').classList.remove('show'); }
+function now()     { return new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}); }
+function genId()   { return Array.from(crypto.getRandomValues(new Uint8Array(5))).map(b=>b.toString(36)).join(''); }
+
+// ═══ PIN OVERLAY ═══
+window.closePinOverlay = function() {
+  const ov = document.getElementById('pin-overlay');
+  const pv = document.getElementById('pin-video');
+  ov.classList.remove('show');
+  pv.srcObject = null;
+};
+function openPinOverlay(stream, muted) {
+  const ov = document.getElementById('pin-overlay');
+  const pv = document.getElementById('pin-video');
+  pv.srcObject = stream;
+  pv.muted = !!muted;
+  pv.play().catch(() => {});
+  ov.classList.add('show');
+}
+
+// ═══ SPEECH DETECTION ═══
+const speechMap = {};
+
+function startSpeech(id, stream) {
+  stopSpeech(id);
+  if (!stream) return;
+  const audioTracks = stream.getAudioTracks();
+  if (!audioTracks.length || !audioTracks[0].enabled) return;
+  try {
+    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    const src      = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.4;
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    let rafId;
+    function tick() {
+      const tracks = stream.getAudioTracks();
+      const active = tracks.length > 0 && tracks[0].enabled && tracks[0].readyState !== 'ended';
+      const tile   = document.getElementById('t' + id);
+      if (!tile) { cancelAnimationFrame(rafId); ctx.close(); delete speechMap[id]; return; }
+      if (!active) { tile.classList.remove('speaking'); rafId = requestAnimationFrame(tick); return; }
+      analyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b)=>a+b,0)/buf.length;
+      tile.classList.toggle('speaking', avg > 16);
+      rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+    speechMap[id] = { ctx, cancel() { cancelAnimationFrame(rafId); } };
+    if (id === 'local') myAudioCtx = ctx;
+    else if (peers[id]) peers[id]._ctx = ctx;
+  } catch {}
+}
+
+function stopSpeech(id) {
+  try {
+    if (speechMap[id]) { speechMap[id].cancel(); speechMap[id].ctx.close(); delete speechMap[id]; }
+    document.getElementById('t'+id)?.classList.remove('speaking');
+    if (id==='local') { try { myAudioCtx?.close(); } catch{} myAudioCtx=null; }
+    else if (peers[id]) { try { peers[id]._ctx?.close(); } catch{} }
+  } catch {}
+}
+
+// ═══ TILES ═══
+function makeName(id) {
+  return id === 'local' ? myName + ' (ты)' : (peers[id]?.name || 'Собеседник');
+}
+
+/* Create/update tile for a peer or local depending on what streams are available */
+function renderTile(id, camStream, scrStream, isLocal) {
+  const area = document.getElementById('vids');
+  const hasCam = camStream && camStream.getVideoTracks().some(t=>t.readyState!=='ended');
+  const hasScr = scrStream && scrStream.getVideoTracks().some(t=>t.readyState!=='ended');
+  const both   = hasCam && hasScr;
+
+  let t = document.getElementById('t' + id);
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 't' + id;
+    t.className = 'vt';
+    area.append(t);
+  }
+  // Clear contents
+  t.innerHTML = '';
+
+  // Helpers для надёжного воспроизведения
+  function makeVideo(stream, muted) {
+    const v = document.createElement('video');
+    v.autoplay = true; v.playsInline = true; v.muted = muted;
+    v.srcObject = stream;
+    v.play().catch(() => {});
+    return v;
+  }
+  function makeAudio(stream) {
+    const a = document.createElement('audio');
+    a.autoplay = true; a.srcObject = stream;
+    a.style.display = 'none';
+    a.play().catch(() => {});
+    return a;
+  }
+  // Audio-only stream: camStream без видео (микро включён, камера выключена)
+  const audioOnlyStream = !hasCam && camStream && camStream.getAudioTracks().length > 0 ? camStream : null;
+
+  if (both) {
+    // ── SPLIT TILE ── (вебка + демка)
+    t.className = 'vt vt-split';
+
+    // CAM ZONE (top) — видео + звук для удалённого пира
+    const cz = document.createElement('div'); cz.className = 'vt-cam-zone';
+    const czLbl = document.createElement('div'); czLbl.className = 'vt-zone-label'; czLbl.textContent = '📷 вебка';
+    const cv = makeVideo(camStream, isLocal); // remote: не muted → звук воспроизводится здесь
+    cz.onclick = (e) => { e.stopPropagation(); openPinOverlay(camStream, isLocal); };
+    cz.append(czLbl, cv);
+
+    // SCR ZONE (bottom) — только картинка, звук уже из cam зоны
+    const sz = document.createElement('div'); sz.className = 'vt-scr-zone';
+    const szLbl = document.createElement('div'); szLbl.className = 'vt-zone-label'; szLbl.textContent = '🖥️ экран';
+    const sv = makeVideo(scrStream, true); // всегда muted — звук через cam
+    sz.onclick = (e) => { e.stopPropagation(); openPinOverlay(scrStream, true); };
+    sz.append(szLbl, sv);
+
+    const nm = document.createElement('div'); nm.className='vt-name'; nm.id='nm'+id;
+    nm.textContent = makeName(id);
+
+    t.append(cz, sz, nm);
+    const audioStream = camStream.getAudioTracks().length ? camStream : scrStream;
+    startSpeech(id, audioStream);
+
+  } else {
+    // ── NORMAL TILE ──
+    t.className = 'vt';
+    const videoStream = hasCam ? camStream : hasScrStream(scrStream) ? scrStream : null;
+
+    if (videoStream) {
+      t.onclick = () => openPinOverlay(videoStream, isLocal);
+      const v = makeVideo(videoStream, isLocal);
+      t.append(v);
+      // Экран без камеры + есть отдельный аудио-поток → воспроизводим через скрытый <audio>
+      if (audioOnlyStream && !isLocal) {
+        t.append(makeAudio(audioOnlyStream));
+        startSpeech(id, audioOnlyStream);
+      } else {
+        startSpeech(id, videoStream);
+      }
+    } else {
+      // Нет видео совсем → аватар-заглушка
+      t.onclick = null;
+      const ph = document.createElement('div'); ph.className='vt-waiting';
+      const av = document.createElement('div'); av.className='vt-waiting-avatar';
+      av.textContent = makeName(id).charAt(0).toUpperCase();
+      const lb = document.createElement('div'); lb.className='vt-waiting-label';
+      lb.textContent = makeName(id);
+      ph.append(av, lb); t.append(ph);
+      // Только микро → скрытый <audio>
+      if (!isLocal && audioOnlyStream) {
+        t.append(makeAudio(audioOnlyStream));
+        startSpeech(id, audioOnlyStream);
+      }
+    }
+    const nm = document.createElement('div'); nm.className='vt-name'; nm.id='nm'+id;
+    nm.textContent = makeName(id);
+    t.append(nm);
+  }
+
+  reorderAndLayout();
+}
+
+function hasScrStream(s) { return s && s.getVideoTracks().some(t=>t.readyState!=='ended'); }
+
+function renderLocalTile() {
+  const camStream = (camOn && myVideoTrack && myVideoTrack.readyState!=='ended')
+    ? new MediaStream([myVideoTrack, ...myStream.getAudioTracks()])
+    : null;
+  const scrStream = screenStream || null;
+
+  if (camStream && scrStream) {
+    // both — build combined cam stream with audio for speech detection
+    const camWithAudio = new MediaStream([myVideoTrack, ...myStream.getAudioTracks()]);
+    renderTile('local', camWithAudio, scrStream, true);
+  } else if (camStream) {
+    renderTile('local', myStream, null, true);
+  } else if (scrStream) {
+    // screen only: build stream with screen + audio
+    const tracks = [scrStream.getVideoTracks()[0]];
+    myStream.getAudioTracks().forEach(t => tracks.push(t));
+    renderTile('local', null, new MediaStream(tracks), true);
+  } else {
+    renderTile('local', null, null, true);
+  }
+}
+
+function renderPeerTile(peerId) {
+  if (!peers[peerId]) return;
+  const p = peers[peerId];
+  renderTile(peerId, p.camStream||null, p.scrStream||null, false);
+  setTileName(peerId, p.name||'Собеседник');
+}
+
+function makeTilePlaceholder(id, name) {
+  const area = document.getElementById('vids');
+  let t = document.getElementById('t'+id);
+  if (!t) { t = document.createElement('div'); t.id='t'+id; t.className='vt'; area.append(t); }
+  t.innerHTML='';
+  const ph = document.createElement('div'); ph.className='vt-waiting';
+  const av = document.createElement('div'); av.className='vt-waiting-avatar';
+  av.textContent = name ? name.charAt(0).toUpperCase() : '?';
+  const lb = document.createElement('div'); lb.className='vt-waiting-label';
+  lb.textContent = name || 'подключается...';
+  ph.append(av, lb); t.append(ph);
+  const nm = document.createElement('div'); nm.className='vt-name'; nm.id='nm'+id;
+  nm.textContent = name || 'Собеседник';
+  t.append(nm);
+  reorderAndLayout();
+}
+
+function removeTile(id) {
+  stopSpeech(id);
+  document.getElementById('t'+id)?.remove();
+  reorderAndLayout();
+}
+
+function setTileName(id, name) {
+  const nm = document.getElementById('nm'+id); if(!nm) return;
+  nm.textContent = name + (id==='local' ? ' (ты)' : '');
+}
+
+// ═══ SORT + LAYOUT ═══
+function tileScore(tile) {
+  if (tile.classList.contains('vt-split')) return 0.5; // split tiles are like cam
+  const v = tile.querySelector('video');
+  if (!v || !v.srcObject) return 2;
+  const vTracks = v.srcObject.getVideoTracks().filter(t=>t.readyState!=='ended'&&t.enabled);
+  if (!vTracks.length) return 2;
+  const isScreen = vTracks.some(t=>{
+    try { return t.getSettings().displaySurface != null || t.label.toLowerCase().includes('screen'); } catch { return false; }
+  });
+  return isScreen ? 1 : 0;
+}
+
+function reorderAndLayout() {
+  const area = document.getElementById('vids');
+  const tiles = Array.from(area.children);
+  tiles.sort((a,b)=>tileScore(a)-tileScore(b));
+  tiles.forEach(t=>area.append(t));
+
+  const n = tiles.length; if(!n) return;
+  tiles.forEach(t=>{ t.style.minHeight=''; t.style.gridRow=''; });
+  if      (n===1)  { area.style.gridTemplateColumns='1fr';           area.style.gridTemplateRows='1fr'; }
+  else if (n===2)  { area.style.gridTemplateColumns='1fr 1fr';       area.style.gridTemplateRows='1fr'; }
+  else if (n<=4)   { area.style.gridTemplateColumns='1fr 1fr';       area.style.gridTemplateRows='1fr 1fr'; }
+  else if (n<=6)   { area.style.gridTemplateColumns='repeat(3,1fr)'; area.style.gridTemplateRows='repeat(2,1fr)'; }
+  else if (n<=9)   { area.style.gridTemplateColumns='repeat(3,1fr)'; area.style.gridTemplateRows='repeat(3,1fr)'; }
+  else if (n<=12)  { area.style.gridTemplateColumns='repeat(4,1fr)'; area.style.gridTemplateRows='repeat(3,1fr)'; }
+  else             { area.style.gridTemplateColumns='repeat(5,1fr)'; area.style.gridTemplateRows='repeat(3,1fr)'; }
+}
+window.addEventListener('resize', reorderAndLayout);
+
+// ═══ PEER COUNT / CHAT ═══
+function updatePcnt() {
+  const n = Object.keys(peers).length;
+  document.getElementById('pcnt').textContent =
+    n===0 ? 'только ты' : n===1 ? '2 участника' : (n+1)+' участников';
+}
+function sysMsg(txt) {
+  const box=document.getElementById('msgs');
+  const d=document.createElement('div'); d.className='sm'; d.textContent='— '+txt+' —';
+  box.append(d); box.scrollTop=box.scrollHeight;
+}
+function appendMsg(text, name, own, time) {
+  const box=document.getElementById('msgs');
+  const d=document.createElement('div'); d.className='msg'+(own?' own':'');
+  const m=document.createElement('div'); m.className='mm'; m.textContent=(own?'ты':name)+' · '+time;
+  const b=document.createElement('div'); b.className='mb'; b.textContent=text;
+  d.append(m,b); box.append(d); box.scrollTop=box.scrollHeight;
+  if (!chatOpen&&!own) { unread++; badge(); }
+}
+
+// ═══ ACTIVE BROADCAST ═══
+// Cam stream = видео камеры + аудио (главный стрим со звуком)
+function getCamBcast() {
+  const tracks = [];
+  if (myVideoTrack && camOn && myVideoTrack.readyState !== 'ended') {
+    tracks.push(myVideoTrack);
+  }
+  if (micOn && myAudioTrack && myAudioTrack.readyState !== 'ended') {
+    tracks.push(myAudioTrack);
+  }
+  return tracks.length ? new MediaStream(tracks) : null;
+}
+// Scr stream = только видео экрана, БЕЗ аудио (чтобы не дублировать звук)
+function getScrBcast() {
+  if (!screenStream) return null;
+  const vt = screenStream.getVideoTracks()[0];
+  if (!vt || vt.readyState === 'ended') return null;
+  return new MediaStream([vt]);
+}
+
+// Send cam+scr streams to a specific peer, signaling types
+function broadcastToPeer(peerId) {
+  if (!room) return;
+  let camS = getCamBcast();
+  const scrS = getScrBcast();
+
+  // Если камеры нет, но есть аудио — шлём аудио-only как 'cam'
+if (!camS && micOn && myAudioTrack && myAudioTrack.readyState !== 'ended') {
+  camS = new MediaStream([myAudioTrack]);
+}
+
+  if (camS) {
+    sendStreamMeta('cam', peerId);
+    setTimeout(() => room.addStream(camS, peerId), 60);
+  }
+  if (scrS) {
+    sendStreamMeta('scr', peerId);
+    setTimeout(() => room.addStream(scrS, peerId), camS ? 180 : 60);
+  }
+}
+
+// Broadcast to ALL peers
+function broadcastToAll() {
+  if (!room) return;
+  let camS = getCamBcast();
+  const scrS = getScrBcast();
+
+if (!camS && micOn && myAudioTrack && myAudioTrack.readyState !== 'ended') {
+  camS = new MediaStream([myAudioTrack]);
+}
+
+  if (camS) {
+    sendStreamMeta('cam');
+    setTimeout(() => room.addStream(camS), 60);
+  }
+  if (scrS) {
+    sendStreamMeta('scr');
+    setTimeout(() => room.addStream(scrS), camS ? 180 : 60);
+  }
+}
+
+function rebuildAndBroadcast() {
+  renderLocalTile();
+  broadcastToAll();
+}
+
+// ═══ ROOM SETUP ═══
+function setupRoom(r) {
+  room = r;
+
+  const [sName, gName] = r.makeAction('name');
+  sendName = sName;
+  gName((name, peerId) => {
+    if (!peers[peerId]) peers[peerId]={};
+    peers[peerId].name = name;
+    setTileName(peerId, name);
+    const av = document.querySelector('#t'+peerId+' .vt-waiting-avatar');
+    if (av) av.textContent = name.charAt(0).toUpperCase();
+    const lb = document.querySelector('#t'+peerId+' .vt-waiting-label');
+    if (lb) lb.textContent = name;
+  });
+
+  const [sChat, gChat] = r.makeAction('chat');
+  sendChat_ = sChat;
+  gChat((data, peerId) => {
+    appendMsg(data.text, peers[peerId]?.name||'Собеседник', false, data.time);
+  });
+
+  // Stream type signaling: 'cam' or 'scr'
+  const [sSMeta, gSMeta] = r.makeAction('streamMeta');
+  sendStreamMeta = sSMeta;
+  gSMeta((type, peerId) => {
+    if (!streamTypeQueue[peerId]) streamTypeQueue[peerId] = [];
+    // Check if there's an untyped stream waiting
+    const waiting = streamTypeQueue[peerId].find(e => e.stream && !e.type);
+    if (waiting) {
+      waiting.type = type;
+      handleTypedStream(peerId, type, waiting.stream);
+    } else {
+      streamTypeQueue[peerId].push({ type, stream: null });
+    }
+  });
+
+  const [sVideoOff, gVideoOff] = r.makeAction('videoOff');
+  sendVideoOff = sVideoOff;
+  gVideoOff((data, peerId) => {
+    if (!peers[peerId]) return;
+    const type = data?.type;
+    if (type === 'cam') { peers[peerId].camStream = null; }
+    else if (type === 'scr') { peers[peerId].scrStream = null; }
+    else { peers[peerId].camStream = null; peers[peerId].scrStream = null; }
+    stopSpeech(peerId);
+    renderPeerTile(peerId);
+  });
+
+  r.onPeerStream((stream, peerId) => {
+    if (!peers[peerId]) peers[peerId]={};
+    if (!streamTypeQueue[peerId]) streamTypeQueue[peerId] = [];
+
+    // Check if there's a typed signal waiting for this stream
+    const waiting = streamTypeQueue[peerId].find(e => e.type && !e.stream);
+    if (waiting) {
+      waiting.stream = stream;
+      handleTypedStream(peerId, waiting.type, stream);
+    } else {
+      // No signal yet — queue the stream, wait briefly for signal
+      const entry = { type: null, stream };
+      streamTypeQueue[peerId].push(entry);
+      setTimeout(() => {
+        if (!entry.type) {
+          // Fallback: treat as cam
+          entry.type = 'cam';
+          handleTypedStream(peerId, 'cam', stream);
+        }
+      }, 400);
+    }
+  });
+
+  r.onPeerJoin(peerId => {
+    if (Object.keys(peers).length >= MAX_PEERS) { toast('⚠️ Комната заполнена (максимум 15)'); return; }
+    if (!peers[peerId]) peers[peerId]={};
+    streamTypeQueue[peerId] = [];
+    if (!document.getElementById('t'+peerId)) makeTilePlaceholder(peerId, 'Собеседник');
+    sendName(myName, peerId);
+    broadcastToPeer(peerId);
+    sysMsg('Участник подключился');
+    updatePcnt();
+  });
+
+  r.onPeerLeave(peerId => {
+    const name = peers[peerId]?.name||'Участник';
+    stopSpeech(peerId);
+    delete peers[peerId];
+    delete streamTypeQueue[peerId];
+    removeTile(peerId);
+    sysMsg(name+' покинул звонок');
+    updatePcnt();
+  });
+}
+
+function handleTypedStream(peerId, type, stream) {
+  if (!peers[peerId]) peers[peerId]={};
+  if (type === 'cam') peers[peerId].camStream = stream;
+  else if (type === 'scr') peers[peerId].scrStream = stream;
+  stopSpeech(peerId);
+  renderPeerTile(peerId);
+}
+
+// ═══ CREATE / JOIN ═══
+window.createRoom = async function() {
+  myName   = document.getElementById('uname').value.trim() || 'Аноним';
+  myRoomId = genId()+genId();
+  showOv('Создаём комнату...');
+  try {
+    const r = tryJoin(APP_CONFIG, myRoomId);
+    setupRoom(r);
+    hideOv();
+    enterRoom();
+    toast('✓ Комната создана! Скопируй код другу', 4000);
+  } catch(e) { hideOv(); toast('Ошибка: '+e.message); }
+};
+
+window.joinRoom = async function() {
+  myName = document.getElementById('uname').value.trim() || 'Аноним';
+  let code = document.getElementById('rinp').value.trim();
+  if (!code) { toastErr('⚠️ Введи код комнаты'); flashInput('rinp'); return; }
+  if (code.length < 6) { toastErr('⚠️ Слишком короткий код'); flashInput('rinp'); return; }
+  try { const u = new URL(code); code = u.hash.replace('#','')||code; } catch {}
+  myRoomId = code.trim();
+
+  showOv('Ищем звонок...');
+  let tempRoom = null;
+  try {
+    tempRoom = tryJoin(APP_CONFIG, myRoomId);
+
+    // Собираем пиров которые пришли пока ждём — буфер
+    const earlyJoins = [];
+    let waitResolve  = null;
+    tempRoom.onPeerJoin(pid => {
+      earlyJoins.push(pid);
+      if (waitResolve) { waitResolve(pid); waitResolve = null; }
+    });
+
+    // Ждём первого пира максимум 8с
+    const firstPeerId = await new Promise(resolve => {
+      if (earlyJoins.length) { resolve(earlyJoins[0]); return; }
+      waitResolve = resolve;
+      setTimeout(() => { waitResolve = null; resolve(null); }, 8000);
+    });
+
+    if (!firstPeerId) {
+      try { tempRoom.leave?.(); } catch {}
+      hideOv();
+      toastErr('❌ Звонок не найден — проверь код', 4000);
+      flashInput('rinp');
+      myRoomId='';
+      return;
+    }
+
+    // setupRoom вешает НОВЫЙ onPeerJoin — он будет для следующих пиров.
+    // Всех кто уже в earlyJoins обрабатываем вручную ниже.
+    setupRoom(tempRoom);
+    hideOv();
+    enterRoom();
+
+    // Обрабатываем всех уже подключённых (обычно один — хост)
+    for (const pid of earlyJoins) {
+      if (!peers[pid]) peers[pid]={};
+      streamTypeQueue[pid] = [];
+      if (!document.getElementById('t'+pid)) makeTilePlaceholder(pid, 'Собеседник');
+      sendName(myName, pid);
+      broadcastToPeer(pid);
+    }
+    if (earlyJoins.length) { sysMsg('Участник подключился'); updatePcnt(); }
+
+  } catch(e) {
+    try { tempRoom?.leave?.(); } catch {}
+    hideOv(); toast('Ошибка: '+e.message);
+  }
+};
+
+function enterRoom() {
+  document.getElementById('lobby').style.display='none';
+  document.getElementById('room').classList.add('on');
+  document.getElementById('cfab').style.display='flex';
+  renderLocalTile();
+  updatePcnt();
+}
+
+window.leaveRoom = function() {
+  closePinOverlay();
+  try { room?.leave(); } catch {}
+  myStream.getTracks().forEach(t=>t.stop());
+  screenStream?.getTracks().forEach(t=>t.stop());
+  try { myAudioCtx?.close(); } catch {}
+  Object.keys(peers).forEach(id=>{ stopSpeech(id); delete peers[id]; });
+
+  if (myAudioTrack) { myAudioTrack.stop(); myAudioTrack=null; }
+  if (myVideoTrack) { myVideoTrack.stop(); myVideoTrack=null; }
+  room=null; myStream=new MediaStream();
+  screenStream=null; camOn=false; micOn=false; chatOpen=false; unread=0; myAudioCtx=null;
+
+  document.getElementById('vids').innerHTML='';
+  document.getElementById('msgs').innerHTML='';
+  document.getElementById('cp').classList.remove('open');
+  document.getElementById('cfab').classList.remove('open');
+  document.getElementById('cfab').style.display='none';
+  document.getElementById('ubadge').style.display='none';
+  document.getElementById('room').classList.remove('on');
+  document.getElementById('lobby').style.display='flex';
+  document.getElementById('bcam').classList.add('off');
+  document.getElementById('bmic').classList.add('off');
+  document.getElementById('icam').textContent='🚫';
+  document.getElementById('imic').textContent='🔇';
+  document.getElementById('bscr').classList.remove('son');
+};
+
+window.copyCode = function() {
+  navigator.clipboard.writeText(myRoomId)
+    .then(()=>toast('✓ Код скопирован! Отправь другу'))
+    .catch(()=>prompt('Скопируй код:', myRoomId));
+};
+
+// ═══ MEDIA ═══
+window.toggleCam = async function() {
+  if (!camOn) {
+    try {
+      if (myVideoTrack) { myVideoTrack.stop(); myVideoTrack=null; }
+      const s = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}});
+      myVideoTrack = s.getVideoTracks()[0];
+      camOn=true;
+      document.getElementById('bcam').classList.remove('off');
+      document.getElementById('icam').textContent='📷';
+      renderLocalTile();
+      broadcastToAll();
+      toast('📷 Камера включена');
+    } catch { toast('Нет доступа к камере'); }
+  } else {
+    if (myVideoTrack) { myVideoTrack.stop(); myVideoTrack=null; }
+    camOn=false;
+    document.getElementById('bcam').classList.add('off');
+    document.getElementById('icam').textContent='🚫';
+    if (sendVideoOff) sendVideoOff({type:'cam'});
+    renderLocalTile();
+    broadcastToAll();
+    toast('📷 Камера выключена');
+  }
+};
+
+window.toggleMic = async function() {
+  // Первый раз — запрашиваем доступ один раз и держим трек навсегда
+  if (!myAudioTrack || myAudioTrack.readyState === 'ended') {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({audio:true});
+      const track = s.getAudioTracks()[0];
+      // Убираем старый трек из стрима если был
+      myStream.getAudioTracks().forEach(t => myStream.removeTrack(t));
+      myStream.addTrack(track);
+      myAudioTrack = track;
+    } catch { toast('Нет доступа к микрофону'); return; }
+  }
+
+  if (!micOn) {
+    myAudioTrack.enabled = true;   // просто включаем — без нового getUserMedia
+    micOn = true;
+    document.getElementById('bmic').classList.remove('off');
+    document.getElementById('imic').textContent = '🎙️';
+    try { myAudioCtx?.close(); } catch {}
+    startSpeech('local', myStream);
+    broadcastToAll();
+    toast('🎙️ Микрофон включён');
+  } else {
+    myAudioTrack.enabled = false;  // глушим трек, но НЕ останавливаем — разрешение сохраняется
+    micOn = false;
+    document.getElementById('bmic').classList.add('off');
+    document.getElementById('imic').textContent = '🔇';
+    stopSpeech('local');
+    broadcastToAll();
+    toast('🔇 Микрофон выключен');
+  }
+};
+
+window.toggleScreen = async function() {
+  const btn = document.getElementById('bscr');
+  if (screenStream) {
+    screenStream.getTracks().forEach(t=>t.stop());
+    screenStream=null;
+    btn.classList.remove('son');
+    if (sendVideoOff) sendVideoOff({type:'scr'});
+    renderLocalTile();
+    broadcastToAll();
+    toast('🖥️ Демонстрация остановлена');
+    return;
+  }
+  try {
+    screenStream = await navigator.mediaDevices.getDisplayMedia({video:{cursor:'always'},audio:false});
+    const screenTrack = screenStream.getVideoTracks()[0];
+    btn.classList.add('son');
+
+    screenTrack.onended = () => {
+      if (!screenStream) return;
+      screenStream=null;
+      btn.classList.remove('son');
+      if (sendVideoOff) sendVideoOff({type:'scr'});
+      renderLocalTile();
+      broadcastToAll();
+    };
+
+    renderLocalTile();
+    broadcastToAll();
+    toast('🖥️ Демонстрация экрана');
+  } catch(e) {
+    screenStream=null;
+    if (e?.name !== 'NotAllowedError') toast('Отмена');
+  }
+};
+
+// ═══ CHAT ═══
+window.toggleChat = function() {
+  chatOpen=!chatOpen;
+  document.getElementById('cp').classList.toggle('open',chatOpen);
+  document.getElementById('cfab').classList.toggle('open',chatOpen);
+  if (chatOpen) { unread=0; badge(); }
+};
+function badge() {
+  const b=document.getElementById('ubadge');
+  b.style.display=unread>0?'flex':'none';
+  b.textContent=unread>9?'9+':unread;
+}
+window.chatKey = function(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();} };
+window.sendChat = function() {
+  const inp=document.getElementById('ci'), text=inp.value.trim(); if(!text) return;
+  inp.value='';
+  const t=now();
+  if(sendChat_) sendChat_({text,time:t});
+  appendMsg(text,myName,true,t);
+};
+
+// ═══ AUTO-FILL CODE ═══
+window.addEventListener('load', () => {
+  const code = location.hash.replace('#','');
+  if (code) { document.getElementById('rinp').value=code; toast('⚡ Введи имя и нажми Войти →',4000); }
+});
+
+</script>
+
+<script>
+// ═══ DISABLE RIGHT CLICK ═══
+document.addEventListener('contextmenu', e=>e.preventDefault());
+
+// ═══ CUSTOM CURSOR ═══
+(function() {
+  const dot  = document.getElementById('cursor-dot');
+  const ring = document.getElementById('cursor-ring');
+  if (!dot||!ring) return;
+
+  let mx=-200, my=-200;   // начальная позиция за экраном
+  let rx=mx, ry=my;
+
+  // Dot следует мгновенно — через left/top без transition на позицию
+  dot.style.transition  = 'opacity .2s, width .25s, height .25s, background .2s, box-shadow .2s';
+  ring.style.transition = 'opacity .2s, width .25s, height .25s, border-color .25s';
+
+  document.addEventListener('mousemove', e => {
+    mx=e.clientX; my=e.clientY;
+    dot.style.left = mx+'px';
+    dot.style.top  = my+'px';
+  });
+
+  // Ring плавно догоняет dot
+  (function loop() {
+    rx += (mx-rx)*0.15;
+    ry += (my-ry)*0.15;
+    ring.style.left = rx+'px';
+    ring.style.top  = ry+'px';
+    requestAnimationFrame(loop);
+  })();
+
+  // Click burst
+  document.addEventListener('mousedown', () => {
+    dot.style.width='14px'; dot.style.height='14px';
+    dot.style.background='#fff';
+    ring.style.width='46px'; ring.style.height='46px';
+    ring.style.borderColor='rgba(255,255,255,.25)';
+  });
+  document.addEventListener('mouseup', () => {
+    dot.style.width=''; dot.style.height=''; dot.style.background='';
+    ring.style.width=''; ring.style.height=''; ring.style.borderColor='';
+  });
+
+  // Hover on interactables
+  const SEL='button,a,input,textarea,[onclick],.cb,.vt,.tb-btn,.btn-p,.btn-s';
+  document.addEventListener('mouseover', e => {
+    if (e.target.closest(SEL)) {
+      dot.style.width='12px'; dot.style.height='12px';
+      dot.style.background='#fff';
+      dot.style.boxShadow='0 0 16px var(--a),0 0 32px rgba(63,255,196,.6)';
+      ring.style.width='42px'; ring.style.height='42px';
+      ring.style.borderColor='rgba(63,255,196,.7)';
+    }
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest(SEL)) {
+      dot.style.width=''; dot.style.height=''; dot.style.background=''; dot.style.boxShadow='';
+      ring.style.width=''; ring.style.height=''; ring.style.borderColor='';
+    }
+  });
+
+  document.addEventListener('mouseleave', ()=>{ dot.style.opacity='0'; ring.style.opacity='0'; });
+  document.addEventListener('mouseenter', ()=>{ dot.style.opacity='1'; ring.style.opacity='1'; });
+})();
+
+// ═══ TAGLINES ═══
+const TAGLINES=['// Связь без границ.','// p2p видеозвонки прямо в браузере','// открой · создай · поделись','// Звони напрямую.','// Только ты и твой собеседник.','// В один клик.'];
+(function(){
+  const el=document.getElementById('tagline'); if(!el) return;
+  const pick=TAGLINES[Math.floor(Math.random()*TAGLINES.length)];
+  let i=0; el.textContent='';
+  const iv=setInterval(()=>{ el.textContent+=pick[i++]; if(i>=pick.length) clearInterval(iv); },38);
+})();
+</script>
+
+<script>
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, particles, grid;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  // Floating particles
+  function initParticles() {
+    particles = Array.from({ length: 55 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.22,
+      vy: (Math.random() - 0.5) * 0.22,
+      r: Math.random() * 1.4 + 0.3,
+      a: Math.random() * 0.55 + 0.1,
+      pulse: Math.random() * Math.PI * 2,
+      pSpeed: 0.008 + Math.random() * 0.012,
+    }));
+  }
+
+  // Grid lines (subtle)
+  const GRID = 48;
+
+  let frame = 0;
+  // Two large flowing orbs
+  const orbs = [
+    { cx: 0.15, cy: 0.3,  r: 0.38, color: [63,255,196],  speed: 0.00018, phase: 0 },
+    { cx: 0.82, cy: 0.75, r: 0.32, color: [123,94,167],  speed: 0.00013, phase: 2.1 },
+    { cx: 0.5,  cy: 0.1,  r: 0.22, color: [50,180,255],  speed: 0.00022, phase: 4.3 },
+  ];
+
+  function drawOrb(o, t) {
+    const cx = (o.cx + Math.sin(t * o.speed + o.phase) * 0.08) * W;
+    const cy = (o.cy + Math.cos(t * o.speed * 1.3 + o.phase) * 0.06) * H;
+    const r  = o.r * Math.max(W, H);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    const [rr, gg, bb] = o.color;
+    grad.addColorStop(0,   `rgba(${rr},${gg},${bb},0.055)`);
+    grad.addColorStop(0.4, `rgba(${rr},${gg},${bb},0.022)`);
+    grad.addColorStop(1,   `rgba(${rr},${gg},${bb},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawGrid() {
+    ctx.strokeStyle = 'rgba(63,255,196,0.018)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += GRID) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += GRID) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  function drawParticles(t) {
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      p.pulse += p.pSpeed;
+      // wrap
+      if (p.x < -4) p.x = W + 4;
+      if (p.x > W + 4) p.x = -4;
+      if (p.y < -4) p.y = H + 4;
+      if (p.y > H + 4) p.y = -4;
+      const alpha = p.a * (0.6 + 0.4 * Math.sin(p.pulse));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(63,255,196,${alpha})`;
+      ctx.fill();
+    }
+    // Draw connections between nearby particles
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 110) {
+          const alpha = (1 - dist / 110) * 0.06;
+          ctx.strokeStyle = `rgba(63,255,196,${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function animate(t) {
+    ctx.clearRect(0, 0, W, H);
+    // Fill base
+    ctx.fillStyle = '#06080b';
+    ctx.fillRect(0, 0, W, H);
+    // Orbs
+    orbs.forEach(o => drawOrb(o, t));
+    // Grid
+    drawGrid();
+    // Particles
+    drawParticles(t);
+    requestAnimationFrame(animate);
+  }
+
+  resize();
+  initParticles();
+  window.addEventListener('resize', () => { resize(); initParticles(); });
+  requestAnimationFrame(animate);
+})();
+
+</script>
+
+</body>
+</html>
